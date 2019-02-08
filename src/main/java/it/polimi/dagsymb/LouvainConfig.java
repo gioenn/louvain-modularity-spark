@@ -1,6 +1,8 @@
 package it.polimi.dagsymb;
 
-public class LouvainConfig {
+import java.io.Serializable;
+
+public class LouvainConfig implements Serializable {
 
     String inputFile;
     String outputDir;

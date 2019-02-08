@@ -7,8 +7,8 @@ public class Driver {
 
     public void run_main(String[] args){
 
-        LouvainConfig config = new LouvainConfig("dataset/local.txt",
-                "out/", 20, 2000, 1, ",");
+        LouvainConfig config = new LouvainConfig("src/dataset/local.txt",
+                "src/out/", 20, 2000, 1, ",");
 
         // def deleteOutputDir(config: it.polimi.dagsymb.LouvainConfig): Unit = {
         //   val hadoopConf = new org.apache.hadoop.conf.Configuration()

@@ -1,47 +1,40 @@
 package it.polimi.dagsymb;
 
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.Optional;
-import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.graphx.Edge;
-import org.apache.spark.graphx.EdgeContext;
-import org.apache.spark.graphx.EdgeRDD;
-import org.apache.spark.graphx.EdgeTriplet;
-import org.apache.spark.graphx.Graph;
-import org.apache.spark.graphx.PartitionStrategy;
-import org.apache.spark.graphx.TripletFields;
-import org.apache.spark.graphx.VertexRDD;
-
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
-import scala.Function1;
-import scala.Function3;
-import scala.Option;
-
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
-
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.graphx.*;
+import org.apache.spark.storage.StorageLevel;
+import scala.Function3;
+import scala.Option;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.reflect.ClassTag;
 import scala.runtime.BoxedUnit;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.math.RoundingMode;
+import java.util.*;
 
 
-public class Louvain {
+public class Louvain implements Serializable {
 
 
-	public EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
-		JavaRDD<Edge<Long>> res = sc.<String>textFile(conf.inputFile, conf.parallelism).map(new Function<String, Edge<Long>>() {
+	public interface AbstractFunction1<T1, T2> extends scala.Function1<T1, T2>, Serializable { }
+	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>, Serializable { }
+	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>, Serializable { }
+
+	public static EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
+		JavaRDD<Edge<Long>> res = sc.<String>textFile(conf.inputFile, conf.parallelism)
+				.map(new Function<String, Edge<Long>>() {
 			@Override
 			public Edge<Long> call(String row) {
 				//String[] tokens = Arrays.stream(row.split(conf.delimiter)).map((s) -> s.trim()).toArray(String[]::new);
@@ -66,9 +59,9 @@ public class Louvain {
 	 * it.polimi.dagsymb.mock.Graph[VD,Long].  The resulting graph can be used for louvain computation.
 	 *
 	 */
-	public <T> org.apache.spark.graphx.Graph<LouvainData, Long> createLouvainGraph(org.apache.spark.graphx.Graph<T, Long> graph) {
+	public static <T> org.apache.spark.graphx.Graph<LouvainData, Long> createLouvainGraph(org.apache.spark.graphx.Graph<T, Long> graph) {
 
-		VertexRDD<Long> nodeWeights = graph.aggregateMessages(new Function1<EdgeContext<T, Long, Long>, BoxedUnit>() {
+		VertexRDD<Long> nodeWeights = graph.aggregateMessages(new AbstractFunction1<EdgeContext<T, Long, Long>, BoxedUnit> () {
 			@Override
 			public BoxedUnit apply(EdgeContext<T, Long, Long> e) {
 				e.sendToSrc(e.attr());
@@ -76,15 +69,15 @@ public class Louvain {
 				return BoxedUnit.UNIT;
 			}
 
-		}, new scala.Function2<Long, Long, Long>() {
+		}, new AbstractFunction2<Long, Long, Long>() {
 			@Override
 			public Long apply(Long e1, Long e2) {
 				return e1 + e2;
 			}
 
-		}, (TripletFields)null, ClassTag.apply(Long.class));//TODO
+		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class));//TODO
 
-		return graph.<Long, LouvainData>outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new Function3<Object, T, Option<Long>, LouvainData> () {
+		return graph.<Long, LouvainData>outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, T, Option<Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, T data, Option<Long> weightOption) {
 				long weight = weightOption.getOrElse(new scala.Function0<Long>() {
@@ -102,7 +95,7 @@ public class Louvain {
 	 * Creates the messages passed between each vertex to convey
      neighborhood community data.
 	 */
-	public BoxedUnit sendCommunityData(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
+	public static BoxedUnit sendCommunityData(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
 		Map<Tuple2<Long, Long>, Long> m1 = Collections.singletonMap(new Tuple2<>(e.srcAttr().community,
 				e.srcAttr().communitySigmaTot), e.attr());
 		Map<Tuple2<Long, Long>, Long> m2 = Collections.singletonMap(new Tuple2<>(e.dstAttr().community,
@@ -115,7 +108,7 @@ public class Louvain {
 	/**
 	 * Merge neighborhood community data into a single message for each vertex
 	 */
-	public Map<Tuple2<Long, Long>, Long> mergeCommunityMessages(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2)  {
+	public static Map<Tuple2<Long, Long>, Long> mergeCommunityMessages(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2)  {
 
 		Map<Tuple2<Long, Long>, Long> newMap = new HashMap<>();
 
@@ -125,7 +118,7 @@ public class Louvain {
 				newMap.put(k, data.getValue() + newMap.get(k));
 			}
 			else {
-				newMap.put(k, data.getValue()/*newMap.get(k)*/);
+				newMap.put(k, data.getValue());
 			}
 		}
 
@@ -135,7 +128,7 @@ public class Louvain {
 				newMap.put(k, data.getValue() + newMap.get(k));
 			}
 			else {
-				newMap.put(k, data.getValue()/*newMap.get(k)*/);
+				newMap.put(k, data.getValue());
 			}
 		}
 
@@ -147,7 +140,7 @@ public class Louvain {
 	 * Returns the change in modularity that would result from a vertex
      moving to a specified community.
 	 */
-	public BigDecimal q(
+	public static BigDecimal q(
 			Long currCommunityId,
 			Long testCommunityId,
 			Long testSigmaTot,
@@ -166,7 +159,7 @@ public class Louvain {
 		BigDecimal deltaQ = new BigDecimal(0.0);
 
 		if (!(isCurrentCommunity && sigma_tot.equals(BigDecimal.valueOf(0.0)))) {
-			deltaQ = k_i_in.subtract(k_i.multiply(sigma_tot).divide(M, 6));
+			deltaQ = k_i_in.subtract(k_i.multiply(sigma_tot).divide(M, RoundingMode.HALF_EVEN));
 		}
 
 		return deltaQ;
@@ -179,14 +172,14 @@ public class Louvain {
      modularity.
 	 * Returns a new set of vertices with the updated vertex state.
 	 */
-	public VertexRDD<LouvainData> louvainVertJoin(
+	public static VertexRDD<LouvainData> louvainVertJoin(
 			org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph,
 			VertexRDD<Map<Tuple2<Long, Long>, Long>> msgRDD,
 			Broadcast<Long> totalEdgeWeight,
 			Boolean even)  {
 
 		// innerJoin[U, VD2](other: RDD[(VertexId, U)])(f: (VertexId, VD, U) => VD2): VertexRDD[VD2]
-		return louvainGraph.vertices().innerJoin(msgRDD.toJavaRDD().rdd(), new scala.Function3<Object, LouvainData, Map<Tuple2<Long, Long>, Long>, LouvainData>() {
+		return louvainGraph.vertices().innerJoin(msgRDD.toJavaRDD().rdd(), new AbstractFunction3<Object, LouvainData, Map<Tuple2<Long, Long>, Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, LouvainData louvainData, Map<Tuple2<Long, Long>, Long> communityMessages) {
 				Long bestCommunity = louvainData.community;
@@ -221,9 +214,10 @@ public class Louvain {
 				}
 
 
+
 				// only allow changes from low to high communties on even cyces and
 				// high to low on odd cycles
-				if (louvainData.community != bestCommunity && ((even &&
+				if (!louvainData.community.equals(bestCommunity) && ((even &&
 						louvainData.community > bestCommunity) || (!even &&
 								louvainData.community < bestCommunity))) {
 					//println("  "+vid+" SWITCHED from "+vdata.community+" to "+bestCommunity)
@@ -243,14 +237,14 @@ public class Louvain {
 		}, ClassTag.apply(Map.class), ClassTag.apply(LouvainData.class));
 	}
 
-	public Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
+	public static Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
 			JavaSparkContext sc,
 			org.apache.spark.graphx.Graph<LouvainData, Long> graph){
 
 		return louvain(sc, graph, 1, 1);
 
 	}
-	public Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
+	public static Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
 			JavaSparkContext sc,
 			org.apache.spark.graphx.Graph<LouvainData, Long> graph,
 			Integer minProgress,
@@ -258,13 +252,13 @@ public class Louvain {
 
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = graph.cache();
 
-		Long graphWeight = louvainGraph.vertices().map(new Function1<Tuple2<Object, LouvainData>, Long>() {
+		Long graphWeight = louvainGraph.vertices().map(new AbstractFunction1<Tuple2<Object, LouvainData>, Long>() {
 			@Override
 			public Long apply(Tuple2<Object, LouvainData> louvainVertex) {
 				LouvainData louvainData = (LouvainData) louvainVertex._2();
 				return louvainData.internalWeight + louvainData.nodeWeight;
 			}
-		}, ClassTag.apply(Long.class)).reduce(new scala.Function2<Long, Long, Long>() {
+		}, ClassTag.apply(Long.class)).reduce(new AbstractFunction2<Long, Long, Long>() {
 			@Override
 			public Long apply(Long a, Long b) {
 				return a + b;
@@ -277,18 +271,18 @@ public class Louvain {
 
 		// gather community information from each vertex's local neighborhood
 		VertexRDD<Map<Tuple2<Long, Long>, Long>> communityRDD =
-				louvainGraph.aggregateMessages(new Function1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
+				louvainGraph.aggregateMessages(new AbstractFunction1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
 					@Override
 					public BoxedUnit apply(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
 						return sendCommunityData(e);
 					}
-				}, new scala.Function2<Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>>() {
+				}, new AbstractFunction2<Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>>() {
 					@Override
 					public Map<Tuple2<Long, Long>, Long> apply(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2) {
 						return mergeCommunityMessages(m1, m2);
 					}
 					
-				}, (TripletFields) null, ClassTag.apply(Map.class));//TODO
+				}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class));//TODO
 
 		Long activeMessages = communityRDD.count(); //materializes the msgRDD
 		//and caches it in memory
@@ -308,7 +302,7 @@ public class Louvain {
 
 			// calculate new sigma total value for each community (total weight
 			// of each community)
-			JavaPairRDD<Object, Long> communityUpdate = labeledVertices.map(new Function1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
+			JavaPairRDD<Object, Long> communityUpdate = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
 				@Override
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
 					return new Tuple2<>(v._2().community, v._2().nodeWeight +
@@ -328,7 +322,7 @@ public class Louvain {
 					});
 
 
-			JavaPairRDD<Object, Tuple2<Long, Long>> communityMapping = labeledVertices.map(new Function1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
+			JavaPairRDD<Object, Tuple2<Long, Long>> communityMapping = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
 				@Override
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
 					return new Tuple2<>(v._2().community, (Long)v._1());
@@ -375,34 +369,35 @@ public class Louvain {
 
 			org.apache.spark.graphx.Graph<LouvainData, Long> prevG = louvainGraph;
 
-			louvainGraph = louvainGraph.outerJoinVertices(VertexRDD/*$.MODULE$*/.apply(updatedVertices.rdd() , ClassTag.apply(LouvainData.class)), 
-					new scala.Function3<Object, LouvainData, Option<LouvainData>, LouvainData>() {
+			louvainGraph = louvainGraph.outerJoinVertices(VertexRDD/*$.MODULE$*/.apply(updatedVertices.rdd() , ClassTag.apply(LouvainData.class)),
+					new AbstractFunction3<Object, LouvainData, Option<LouvainData>, LouvainData>() {
 				@Override
 				public LouvainData apply(Object vid, LouvainData old, Option<LouvainData> newOpt) {
+
 					return newOpt.getOrElse(new scala.Function0<LouvainData>() {
 						public LouvainData apply() {
 							return old;
 						}
 					});
 				}
-			}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+			}, ClassTag.apply(LouvainData.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
 			louvainGraph.cache();
 
 			VertexRDD<Map<Tuple2<Long, Long>, Long>> oldMsgs = communityRDD;
 
 			// gather community information from each vertex's local neighborhood
-			communityRDD = louvainGraph.aggregateMessages(new Function1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
+			communityRDD = louvainGraph.aggregateMessages(new AbstractFunction1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
 						@Override
 						public BoxedUnit apply(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
 							return sendCommunityData(e);
 						}
-					}, new scala.Function2<Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>>() {
+					}, new AbstractFunction2<Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>, Map<Tuple2<Long, Long>, Long>>() {
 						@Override
 						public Map<Tuple2<Long, Long>, Long> apply(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2) {
 							return mergeCommunityMessages(m1, m2);
 						}
 						
-					}, (TripletFields) null, ClassTag.apply(Map.class)); //TODO
+					}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class)); //TODO
 			activeMessages = communityRDD.count(); // materializes the graph by forcing computation
 
 			oldMsgs.unpersist(false);
@@ -415,7 +410,7 @@ public class Louvain {
 			// move)
 			if (even)
 				updated = 0L;
-			updated = updated + louvainGraph.vertices().filter(new Function1<Tuple2<Object, LouvainData>, Object>() {
+			updated = updated + louvainGraph.vertices().filter(new AbstractFunction1<Tuple2<Object, LouvainData>, Object>() {
 				@Override
 				public Boolean apply(Tuple2<Object, LouvainData> v) {
 					return v._2.changed;
@@ -438,7 +433,7 @@ public class Louvain {
 		// Use each vertex's neighboring community data to calculate the
 		// global modularity of the graph
 		VertexRDD<Double> newVertices =
-				louvainGraph.vertices().innerJoin(communityRDD.toJavaRDD().rdd(), new scala.Function3<Object, LouvainData, Map<Tuple2<Long, Long>, Long>, Double>() {
+				louvainGraph.vertices().innerJoin(communityRDD.toJavaRDD().rdd(), new AbstractFunction3<Object, LouvainData, Map<Tuple2<Long, Long>, Long>, Double>() {
 					@Override
 					public Double apply(Object vertexId, LouvainData louvainData, Map<Tuple2<Long, Long>, Long> communityMap) {
 						// sum the nodes internal weight and all of its edges that are in
@@ -448,7 +443,7 @@ public class Louvain {
 						Double sigmaTot = louvainData.communitySigmaTot.doubleValue();
 
 						for (Map.Entry<Tuple2<Long, Long>, Long> entry : communityMap.entrySet()){
-							accumulatedInternalWeight = accumulateTotalWeight(accumulatedInternalWeight, entry, louvainData);
+							accumulatedInternalWeight += accumulateTotalWeight(entry, louvainData);
 						}
 
 						Long M = totalGraphWeight.getValue();
@@ -462,12 +457,12 @@ public class Louvain {
 					}
 				}, ClassTag.apply(Map.class), ClassTag.apply(Double.class));
 
-		Double actualQ = newVertices.map(new Function1<Tuple2<Object, Double>, Double>() {
+		Double actualQ = newVertices.map(new AbstractFunction1<Tuple2<Object, Double>, Double>() {
 			@Override
 			public Double apply(Tuple2<Object, Double> v) {
 				return v._2();
 			}
-		}, ClassTag.apply(Double.class)).reduce(new scala.Function2<Double, Double, Double>() {
+		}, ClassTag.apply(Double.class)).reduce(new AbstractFunction2<Double, Double, Double>() {
 			@Override
 			public Double apply(Double a, Double b) {
 				return a + b;	
@@ -479,29 +474,29 @@ public class Louvain {
 		return new Tuple3<>(actualQ, louvainGraph, count / 2);
 	}
 
-	private Long accumulateTotalWeight(Long totalWeight, Map.Entry<Tuple2<Long, Long>, Long> item, LouvainData louvainData)  {
+	private static Long accumulateTotalWeight(Map.Entry<Tuple2<Long, Long>, Long> item, LouvainData louvainData)  {
 		Long communityEdgeWeight = item.getValue();
 		Tuple2<Long, Long>  data = item.getKey();
 		Long communityId = data._1;
 		Long sigmaTotal = data._2;
-		if (louvainData.community == communityId)
-			return totalWeight + communityEdgeWeight;
+		if (louvainData.community.equals(communityId))
+			return communityEdgeWeight;
 		else
-			return totalWeight;
+			return 0L;
 	}
 
-	public org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph) {
+	public static org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph) {
 		return compressGraph(graph, true);
 	}
 
 
-	public org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph, Boolean debug) {
+	public static org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph, Boolean debug) {
 		// aggregate the edge weights of self loops. edges with both src and dst in the same community.
 		// WARNING  can not use graph.mapReduceTriplets because we are mapping to new vertexIds
 		JavaPairRDD<Long, Long> internalEdgeWeights = graph.triplets().toJavaRDD().flatMap(new FlatMapFunction<EdgeTriplet<LouvainData, Long>, Tuple2<Long, Long>>() {
 			@Override
 			public Iterator<Tuple2<Long, Long>> call(EdgeTriplet<LouvainData, Long> et) {
-				if (et.srcAttr().community == et.dstAttr().community) {
+				if (et.srcAttr().community.equals(et.dstAttr().community)) {
 					return Collections.singletonList(new Tuple2<>(et.srcAttr().community, 2 * et.attr)).iterator(); // count the weight from both nodes
 				} else return Collections.emptyIterator();
 			}
@@ -520,7 +515,7 @@ public class Louvain {
 		Iterator<Object> it = Collections.emptyIterator();
 
 		// aggregate the internal weights of all nodes in each community
-		JavaPairRDD<Long, Long> internalWeights = graph.vertices().map(new Function1<Tuple2<Object, LouvainData>, LouvainData>(){
+		JavaPairRDD<Long, Long> internalWeights = graph.vertices().map(new AbstractFunction1<Tuple2<Object, LouvainData>, LouvainData>(){
 			@Override
 			public LouvainData apply(Tuple2<Object, LouvainData> v) {
 				return v._2();
@@ -577,9 +572,9 @@ public class Louvain {
 		EdgeRDD<Long> _newEdges = EdgeRDD.fromEdges(edges.rdd(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 		// generate a new graph where each community of the previous graph is
 		// now represented as a single vertex
-		org.apache.spark.graphx.Graph<LouvainData, Long> compressedGraph = Graph.apply(_newVertices, _newEdges, null, null, null, ClassTag.apply(LouvainData.class), ClassTag.apply(Long.class))
+		org.apache.spark.graphx.Graph<LouvainData, Long> compressedGraph = Graph.apply(_newVertices, _newEdges, null, null, StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(LouvainData.class), ClassTag.apply(Long.class))
 				.partitionBy(PartitionStrategy.fromString("EdgePartition2D")) /* PartitionStrategy.EdgePartition2D$.MODULE$*/
-				.groupEdges(new scala.Function2<Long, Long, Long>() {
+				.groupEdges(new AbstractFunction2<Long, Long, Long>() {
 					@Override
 					public Long apply(Long e1, Long e2) {
 						return e1 + e2;
@@ -589,23 +584,23 @@ public class Louvain {
 		// calculate the weighted degree of each node
 		VertexRDD<Long> nodeWeights = compressedGraph.aggregateMessages(
 				
-				new Function1<EdgeContext<LouvainData,Long, Long>, BoxedUnit> () {
+				new AbstractFunction1<EdgeContext<LouvainData,Long, Long>, BoxedUnit> () {
 			@Override
 			public BoxedUnit apply(EdgeContext<LouvainData, Long, Long> e) {
 				e.sendToSrc(e.attr());
 				e.sendToDst(e.attr());
 				return BoxedUnit.UNIT;
 			}
-		}, new scala.Function2<Long, Long, Long>() {
+		}, new AbstractFunction2<Long, Long, Long>() {
 			@Override
 			public Long apply(Long e1, Long e2) {
 				return e1 + e2;
 			}
-		}, (TripletFields)null, ClassTag.apply(Long.class)); //TODO
+		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class)); //TODO
 
 		// fill in the weighted degree of each node
 		// val louvainGraph = compressedGraph.joinVertices(nodeWeights)((vid,data,weight)=> {
-		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = compressedGraph.outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new scala.Function3<Object, LouvainData, Option<Long>, LouvainData>() {
+		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = compressedGraph.outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, LouvainData, Option<Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, LouvainData data, Option<Long> weightOption) {
 				Long weight = weightOption.getOrElse(new scala.Function0<Long>() {
@@ -628,7 +623,7 @@ public class Louvain {
 		return louvainGraph;
 	}
 
-	public void saveLevel(
+	public static void saveLevel(
 			JavaSparkContext sc,
 			LouvainConfig config,
 			Integer level,
@@ -646,9 +641,9 @@ public class Louvain {
 		sc.parallelize(qValues, 1).saveAsTextFile(config.outputDir + "/qvalues_" + level);
 	}
 
-	public void run(JavaSparkContext sc, LouvainConfig config) {
+	public static void run(JavaSparkContext sc, LouvainConfig config) {
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
-		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, null, null, ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = createLouvainGraph(initialGraph);
 
 		int compressionLevel = -1; // number of times the graph has been compressed
