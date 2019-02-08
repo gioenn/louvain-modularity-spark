@@ -31,12 +31,11 @@ public class Driver {
         // val sc = new SparkContext(conf)
         // Logger.getRootLogger.setLevel(Level.WARN)
 
-        JavaSparkContext sc = new JavaSparkContext("local[2]", "it.polimi.dagsymb.Louvain");
+        JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
 
         // deleteOutputDir(config)
 
-        Louvain louvain = new Louvain();
-        louvain.run(sc, config);
+		Louvain.run(sc, config);
     }
     
 	public void addToFileLocal(int amount, long v1, long v2) {

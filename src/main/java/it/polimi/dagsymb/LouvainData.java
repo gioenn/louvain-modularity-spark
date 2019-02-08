@@ -20,7 +20,7 @@ public class LouvainData implements KryoSerializable, Serializable {
         this.communitySigmaTot = communitySigmaTot;
         this.internalWeight = internalWeight;
         this.nodeWeight = nodeWeight;
-        this.changed = false;
+        this.changed = changed;
     }
 
     public LouvainData(){
@@ -28,7 +28,7 @@ public class LouvainData implements KryoSerializable, Serializable {
     }
 
     public String toString(){
-        return "{community:"+community+",communitySigmaTot:"+communitySigmaTot+",internalWeight:"+internalWeight+",nodeWeight:"+nodeWeight+"}";
+        return "{community:"+community+",communitySigmaTot:"+communitySigmaTot+",internalWeight:"+internalWeight+",nodeWeight:"+nodeWeight+",changed: "+changed+"}";
     }
 
     public void write(Kryo kyro, Output output) {

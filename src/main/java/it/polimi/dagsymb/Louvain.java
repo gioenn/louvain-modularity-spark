@@ -75,7 +75,7 @@ public class Louvain implements Serializable {
 				return e1 + e2;
 			}
 
-		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class));//TODO
+		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class));
 
 		return graph.<Long, LouvainData>outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, T, Option<Long>, LouvainData>() {
 			@Override
@@ -87,7 +87,7 @@ public class Louvain implements Serializable {
 				});
 				return new LouvainData((Long) vid, weight, 0L, weight, false);
 			}
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO eq?
 
 	}
 
@@ -159,7 +159,11 @@ public class Louvain implements Serializable {
 		BigDecimal deltaQ = new BigDecimal(0.0);
 
 		if (!(isCurrentCommunity && sigma_tot.equals(BigDecimal.valueOf(0.0)))) {
-			deltaQ = k_i_in.subtract(k_i.multiply(sigma_tot).divide(M, RoundingMode.HALF_EVEN));
+			//deltaQ = k_i_in.subtract(k_i.multiply(sigma_tot).divide(M, RoundingMode.HALF_EVEN));
+			double dq= k_i_in.doubleValue() - (k_i.doubleValue()*sigma_tot.doubleValue()/M.doubleValue());
+			deltaQ = new BigDecimal(dq);
+			//System.out.println("ZEROX      "+deltaQ+"("+dq+") = "+k_i_in+" - ( "+k_i+" * "+sigma_tot+" / "+M);
+
 		}
 
 		return deltaQ;
@@ -267,7 +271,7 @@ public class Louvain implements Serializable {
 
 		Broadcast<Long> totalGraphWeight = sc.broadcast(graphWeight);
 
-		System.out.println("totalEdgeWeight: " + totalGraphWeight.value());
+		System.out.println("[LVX] totalEdgeWeight: " + totalGraphWeight.value());
 
 		// gather community information from each vertex's local neighborhood
 		VertexRDD<Map<Tuple2<Long, Long>, Long>> communityRDD =
@@ -281,8 +285,7 @@ public class Louvain implements Serializable {
 					public Map<Tuple2<Long, Long>, Long> apply(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2) {
 						return mergeCommunityMessages(m1, m2);
 					}
-					
-				}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class));//TODO
+				}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class));
 
 		Long activeMessages = communityRDD.count(); //materializes the msgRDD
 		//and caches it in memory
@@ -298,8 +301,8 @@ public class Louvain implements Serializable {
 
 			// label each vertex with its best community based on neighboring
 			// community information
-			VertexRDD<LouvainData> labeledVertices = louvainVertJoin(louvainGraph, communityRDD, totalGraphWeight, even);
-
+			VertexRDD<LouvainData> labeledVertices = (VertexRDD<LouvainData>)louvainVertJoin(louvainGraph, communityRDD, totalGraphWeight, even).cache();
+			//List<Tuple2<Object, LouvainData>> res = labeledVertices.toJavaRDD().collect();
 			// calculate new sigma total value for each community (total weight
 			// of each community)
 			JavaPairRDD<Object, Long> communityUpdate = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
@@ -319,13 +322,13 @@ public class Louvain implements Serializable {
 						public Long call(Long acc, Long val) {
 							return acc + val;
 						}
-					});
+					}).cache();
 
 
 			JavaPairRDD<Object, Tuple2<Long, Long>> communityMapping = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
 				@Override
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
-					return new Tuple2<>(v._2().community, (Long)v._1());
+					return new Tuple2<>(v._2().community, (Long)v._1);
 				}
 			}, ClassTag.apply(Tuple2.class))
 					.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, Long>, Object, Long>() {
@@ -338,16 +341,14 @@ public class Louvain implements Serializable {
 						public Tuple2<Object, Tuple2<Long, Long>> call(Tuple2<Object, Tuple2<Long, Long>> v) {
 							return new Tuple2<>(v._2()._1, new Tuple2<>((Long)v._1, v._2._2)); //TODO: is it correct to reshaffle the input tuple as return value?
 						}
-					});
-
-
+					}).cache();
 
 
 			// join the community labeled vertices with the updated community info
 			JavaPairRDD<Object, LouvainData> updatedVertices = labeledVertices.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, LouvainData>, Object, LouvainData>() {
 				@Override
 				public Tuple2<Object, LouvainData> call(Tuple2<Object, LouvainData> v) {
-					return new Tuple2<Object, LouvainData>((Long) v._1, v._2);
+					return v;
 				}
 			}).join(communityMapping).mapToPair(new PairFunction<Tuple2<Object, Tuple2<LouvainData, Tuple2<Long, Long>>>, Object, LouvainData>() {
 				@Override
@@ -358,11 +359,11 @@ public class Louvain implements Serializable {
 					data.communitySigmaTot = communityTuple._2;
 					return new Tuple2<>(v._1, data);
 				}
-			});
+			}).cache();
 
 
+			System.out.println(updatedVertices.count());
 
-			updatedVertices.count();
 			labeledVertices.unpersist(false);
 			communityUpdate.unpersist(false);
 			communityMapping.unpersist(false);
@@ -381,12 +382,13 @@ public class Louvain implements Serializable {
 					});
 				}
 			}, ClassTag.apply(LouvainData.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+
 			louvainGraph.cache();
 
 			VertexRDD<Map<Tuple2<Long, Long>, Long>> oldMsgs = communityRDD;
 
 			// gather community information from each vertex's local neighborhood
-			communityRDD = louvainGraph.aggregateMessages(new AbstractFunction1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
+			communityRDD = (VertexRDD<Map<Tuple2<Long, Long>, Long>> )louvainGraph.aggregateMessages(new AbstractFunction1<EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>>, BoxedUnit>() {
 						@Override
 						public BoxedUnit apply(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
 							return sendCommunityData(e);
@@ -397,9 +399,9 @@ public class Louvain implements Serializable {
 							return mergeCommunityMessages(m1, m2);
 						}
 						
-					}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class)); //TODO
-			activeMessages = communityRDD.count(); // materializes the graph by forcing computation
+					}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class)).cache();
 
+			activeMessages = communityRDD.count(); // materializes the graph by forcing computation
 			oldMsgs.unpersist(false);
 			updatedVertices.unpersist(false);
 			prevG.unpersistVertices(false);
@@ -418,7 +420,7 @@ public class Louvain implements Serializable {
 			}).count();
 
 			if (!even) {
-				System.out.println("  # vertices moved: " + java.text.NumberFormat.getInstance().format(updated));
+				System.out.println(" [LVX] # vertices moved: " + java.text.NumberFormat.getInstance().format(updated));
 
 				if (updated >= updatedLastPhase - minProgress)
 					stop += 1;
@@ -428,7 +430,7 @@ public class Louvain implements Serializable {
 
 		} while (stop <= progressCounter && (even || (updated > 0 && count < maxIter)));
 
-		System.out.println("\nCompleted in " + count + " cycles");
+		System.out.println("\n[LVX]Completed in " + count + " cycles");
 
 		// Use each vertex's neighboring community data to calculate the
 		// global modularity of the graph
@@ -449,7 +451,7 @@ public class Louvain implements Serializable {
 						Long M = totalGraphWeight.getValue();
 						Long k_i = louvainData.nodeWeight + louvainData.internalWeight;
 						Double q = (accumulatedInternalWeight.doubleValue() / M) - ((sigmaTot * k_i) / Math.pow(M, 2));
-						//println(s"vid: $vid community: $community $q = ($k_i_in / $M) - ( ($sigmaTot * $k_i) / math.pow($M, 2) )")
+						//System.out.println("vid: "+vid+"community: "+community+" "+q+ "= ("+k_i_in+ / $M) - ( ($sigmaTot * $k_i) / math.pow($M, 2) )")
 						if (q < 0)
 							return 0d;
 						else
@@ -520,7 +522,7 @@ public class Louvain implements Serializable {
 			public LouvainData apply(Tuple2<Object, LouvainData> v) {
 				return v._2();
 			}
-		}, ClassTag.apply(Long.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
+		}, ClassTag.apply(LouvainData.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
 			@Override
 			public Tuple2<Long, Long> call(LouvainData v) {
 				return new Tuple2<Long, Long>(v.community, v.internalWeight);
@@ -613,10 +615,11 @@ public class Louvain implements Serializable {
 				return data;
 			}
 
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null /*TODO*/).cache();
+		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null /*TODO eq?*/).cache();
 
+		; // materialize the graph
 		louvainGraph.vertices().count();
-		louvainGraph.triplets().count(); // materialize the graph
+		louvainGraph.triplets().count();
 
 		newVertices.unpersist(false);
 		edges.unpersist(false);
@@ -630,20 +633,21 @@ public class Louvain implements Serializable {
 			List<Tuple2<Integer, Double>> qValues,
 			Graph<LouvainData, Long> graph) {
 
-		String vertexSavePath = config.outputDir + "/level_" + level + "_vertices";
-		String edgeSavePath = config.outputDir + "/level_" + level + "_edges";
+		String vertexSavePath = config.outputDir + "/level_" + level + "_vertices"+System.currentTimeMillis();
+		String edgeSavePath = config.outputDir + "/level_" + level + "_edges"+System.currentTimeMillis();
 
 		// save
 		graph.vertices().saveAsTextFile(vertexSavePath);
 		graph.edges().saveAsTextFile(edgeSavePath);
 
 		// overwrite the q values at each level
-		sc.parallelize(qValues, 1).saveAsTextFile(config.outputDir + "/qvalues_" + level);
+		sc.parallelize(qValues, 1).saveAsTextFile(config.outputDir + "/qvalues_" + level+"-"+System.currentTimeMillis());
 	}
 
 	public static void run(JavaSparkContext sc, LouvainConfig config) {
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
 		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = createLouvainGraph(initialGraph);
 
 		int compressionLevel = -1; // number of times the graph has been compressed
@@ -666,7 +670,7 @@ public class Louvain implements Serializable {
 			louvainGraph.unpersistVertices(false);
 			louvainGraph = currentGraph;
 
-			System.out.println("qValue: "+currentQModularityValue);
+			System.out.println("[LVX] qValue: "+currentQModularityValue);
 
 			qValues.add(new Tuple2<Integer, Double>(compressionLevel, currentQModularityValue));
 
