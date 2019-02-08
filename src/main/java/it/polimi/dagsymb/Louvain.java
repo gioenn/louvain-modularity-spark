@@ -82,7 +82,7 @@ public class Louvain {
 				return e1 + e2;
 			}
 
-		}, (TripletFields)null, ClassTag.apply(Long.class));//TODO
+		}, (TripletFields)null, ClassTag.apply(Long.class));//TODO TripletFields?
 
 		return graph.<Long, LouvainData>outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new Function3<Object, T, Option<Long>, LouvainData> () {
 			@Override
@@ -94,7 +94,7 @@ public class Louvain {
 				});
 				return new LouvainData((Long) vid, weight, 0L, weight, false);
 			}
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO eq?
 
 	}
 
@@ -288,7 +288,7 @@ public class Louvain {
 						return mergeCommunityMessages(m1, m2);
 					}
 					
-				}, (TripletFields) null, ClassTag.apply(Map.class));//TODO
+				}, (TripletFields) null, ClassTag.apply(Map.class));//TODO TripleFields?
 
 		Long activeMessages = communityRDD.count(); //materializes the msgRDD
 		//and caches it in memory
@@ -353,7 +353,7 @@ public class Louvain {
 			JavaPairRDD<Object, LouvainData> updatedVertices = labeledVertices.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, LouvainData>, Object, LouvainData>() {
 				@Override
 				public Tuple2<Object, LouvainData> call(Tuple2<Object, LouvainData> v) {
-					return new Tuple2<Object, LouvainData>((Long) v._1, v._2);
+					return v;
 				}
 			}).join(communityMapping).mapToPair(new PairFunction<Tuple2<Object, Tuple2<LouvainData, Tuple2<Long, Long>>>, Object, LouvainData>() {
 				@Override
@@ -385,7 +385,7 @@ public class Louvain {
 						}
 					});
 				}
-			}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+			}, ClassTag.apply(LouvainData.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO eq?
 			louvainGraph.cache();
 
 			VertexRDD<Map<Tuple2<Long, Long>, Long>> oldMsgs = communityRDD;
@@ -525,7 +525,7 @@ public class Louvain {
 			public LouvainData apply(Tuple2<Object, LouvainData> v) {
 				return v._2();
 			}
-		}, ClassTag.apply(Long.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
+		}, ClassTag.apply(LouvainData.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
 			@Override
 			public Tuple2<Long, Long> call(LouvainData v) {
 				return new Tuple2<Long, Long>(v.community, v.internalWeight);
@@ -601,7 +601,7 @@ public class Louvain {
 			public Long apply(Long e1, Long e2) {
 				return e1 + e2;
 			}
-		}, (TripletFields)null, ClassTag.apply(Long.class)); //TODO
+		}, (TripletFields)null, ClassTag.apply(Long.class)); //TODO TripletFields?
 
 		// fill in the weighted degree of each node
 		// val louvainGraph = compressedGraph.joinVertices(nodeWeights)((vid,data,weight)=> {
@@ -618,7 +618,7 @@ public class Louvain {
 				return data;
 			}
 
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null /*TODO*/).cache();
+		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null /*TODO eq?*/).cache();
 
 		louvainGraph.vertices().count();
 		louvainGraph.triplets().count(); // materialize the graph
@@ -648,7 +648,7 @@ public class Louvain {
 
 	public void run(JavaSparkContext sc, LouvainConfig config) {
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
-		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, null, null, ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null /*TODO defaultvalue?*/, null, null, ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = createLouvainGraph(initialGraph);
 
 		int compressionLevel = -1; // number of times the graph has been compressed

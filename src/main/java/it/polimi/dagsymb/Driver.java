@@ -7,7 +7,7 @@ public class Driver {
 
     public void run_main(String[] args){
 
-        LouvainConfig config = new LouvainConfig("dataset/local.txt",
+        LouvainConfig config = new LouvainConfig("src/dataset/local.txt",
                 "out/", 20, 2000, 1, ",");
 
         // def deleteOutputDir(config: it.polimi.dagsymb.LouvainConfig): Unit = {
@@ -31,7 +31,7 @@ public class Driver {
         // val sc = new SparkContext(conf)
         // Logger.getRootLogger.setLevel(Level.WARN)
 
-        JavaSparkContext sc = new JavaSparkContext("local[2]", "it.polimi.dagsymb.Louvain");
+        JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
 
         // deleteOutputDir(config)
 
