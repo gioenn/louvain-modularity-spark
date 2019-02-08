@@ -5,7 +5,7 @@ import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-class LouvainData implements KryoSerializable {
+public class LouvainData implements KryoSerializable {
 
     Long community;
     Long communitySigmaTot;
