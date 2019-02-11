@@ -1,0 +1,11 @@
+resolve begin
+
+{R_ANY} instanceof java/lang/Integer not null,
+{R_ANY} instanceof java/lang/Integer aliases nothing,
+{R_ANY} instanceof java/lang/Long not null,
+{R_ANY} instanceof java/lang/Long aliases nothing,
+{R_ANY} instanceof java/lang/String not null,
+{R_ANY} instanceof java/lang/String aliases nothing,
+{R_ANY} instanceof org/apache/spark/graphx/TripletFields expands to nothing
+
+end
