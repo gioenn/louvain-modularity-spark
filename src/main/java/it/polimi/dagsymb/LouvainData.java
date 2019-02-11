@@ -1,13 +1,13 @@
 package it.polimi.dagsymb;
 
-import com.esotericsoftware.kryo.Kryo;
+/*import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.io.Output;*/
 
-import java.io.Serializable;
+//import java.io.Serializable;
 
-public class LouvainData implements KryoSerializable, Serializable {
+public class LouvainData /*implements KryoSerializable, Serializable */{
 
     Long community;
     Long communitySigmaTot;
@@ -31,20 +31,20 @@ public class LouvainData implements KryoSerializable, Serializable {
         return "{community:"+community+",communitySigmaTot:"+communitySigmaTot+",internalWeight:"+internalWeight+",nodeWeight:"+nodeWeight+",changed: "+changed+"}";
     }
 
-    public void write(Kryo kyro, Output output) {
-        kyro.writeObject(output, this.community);
+    public void write(/*Kryo kyro, Output output*/) {
+        /*kyro.writeObject(output, this.community);
         kyro.writeObject(output, this.communitySigmaTot);
         kyro.writeObject(output, this.internalWeight);
         kyro.writeObject(output, this.nodeWeight);
-        kyro.writeObject(output, this.changed);
+        kyro.writeObject(output, this.changed);*/
     }
 
-    public void read(Kryo kyro, Input input) {
-        this.community = kyro.readObject(input, Long.class);
+    public void read(/*Kryo kyro, Input input*/) {
+        /*this.community = kyro.readObject(input, Long.class);
         this.communitySigmaTot = kyro.readObject(input, Long.class);
         this.internalWeight = kyro.readObject(input, Long.class);
         this.nodeWeight = kyro.readObject(input, Long.class);
-        this.changed = kyro.readObject(input, Boolean.class);
+        this.changed = kyro.readObject(input, Boolean.class);*/
     }
 
     @Override

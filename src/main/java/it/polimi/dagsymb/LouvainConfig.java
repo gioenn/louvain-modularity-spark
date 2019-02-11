@@ -1,23 +1,47 @@
 package it.polimi.dagsymb;
 
-import java.io.Serializable;
+//import java.io.Serializable;
 
-public class LouvainConfig implements Serializable {
+public class LouvainConfig /*implements Serializable*/ {
+	private String inputFile;
+    private String outputDir;
+    private int parallelism;
+    private int minimumCompressionProgress;
+    private int progressCounter;
+    private String delimiter;
 
-    String inputFile;
-    String outputDir;
-    Integer parallelism;
-    Integer minimumCompressionProgress;
-    Integer progressCounter;
-    String delimiter;
 
-
-    public LouvainConfig(String inputFile, String outputDir, Integer parallelism, Integer minimumCompressionProgress, Integer progressCounter, String delimiter){
-        this.inputFile = inputFile;
+    public LouvainConfig(String inputFile, String outputDir, int parallelism, int minimumCompressionProgress, int progressCounter, String delimiter){
+        this.inputFile = "src/dataset/local1.txt"; //GIO fixed inputFile;
         this.outputDir = outputDir;
         this.parallelism = parallelism;
         this.minimumCompressionProgress = minimumCompressionProgress;
         this.progressCounter = progressCounter;
-        this.delimiter = delimiter;
+        this.delimiter = ","; //GIO fixed delimiter;
     }
+
+
+	public String getInputFile() {
+		return inputFile;
+	}
+
+	public String getOutputDir() {
+		return outputDir;
+	}
+
+	public int getParallelism() {
+		return parallelism;
+	}
+
+	public int getMinimumCompressionProgress() {
+		return minimumCompressionProgress;
+	}
+
+	public int getProgressCounter() {
+		return progressCounter;
+	}
+
+	public String getDelimiter() {
+		return delimiter;
+	}
 }

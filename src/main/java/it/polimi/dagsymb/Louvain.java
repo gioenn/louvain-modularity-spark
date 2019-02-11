@@ -1,6 +1,5 @@
 package it.polimi.dagsymb;
 
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -10,35 +9,50 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.graphx.*;
+import org.apache.spark.graphx.Edge;
+import org.apache.spark.graphx.EdgeContext;
+import org.apache.spark.graphx.EdgeRDD;
+import org.apache.spark.graphx.EdgeTriplet;
+import org.apache.spark.graphx.Graph;
+import org.apache.spark.graphx.PartitionStrategy;
+import org.apache.spark.graphx.TripletFields;
+import org.apache.spark.graphx.VertexRDD;
 import org.apache.spark.storage.StorageLevel;
-import scala.Function3;
+
+import jbse.meta.Analysis;
 import scala.Option;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.reflect.ClassTag;
 import scala.runtime.BoxedUnit;
 
-import java.io.Serializable;
+//import java.io.Serializable;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 
-public class Louvain implements Serializable {
+public class Louvain {
 
+	public Louvain() {
+		JavaSparkContext.resetData();
+	}
 
-	public interface AbstractFunction1<T1, T2> extends scala.Function1<T1, T2>, Serializable { }
-	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>, Serializable { }
-	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>, Serializable { }
+	public interface AbstractFunction1<T1, T2> extends scala.Function1<T1, T2>/*GIO , Serializable*/ { }
+	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>/*, Serializable*/ { }
+	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>/*, Serializable*/ { }
 
-	public static EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
-		JavaRDD<Edge<Long>> res = sc.<String>textFile(conf.inputFile, conf.parallelism)
+	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
+		JavaRDD<Edge<Long>> res = sc.<String>textFile(conf.getInputFile(), conf.getParallelism())
 				.map(new Function<String, Edge<Long>>() {
 			@Override
 			public Edge<Long> call(String row) {
 				//String[] tokens = Arrays.stream(row.split(conf.delimiter)).map((s) -> s.trim()).toArray(String[]::new);
-				String[] tokens = row.split(conf.delimiter);
+				String[] tokens = row.split(conf.getDelimiter());
 				for (int i = 0; i < tokens.length; i++) {
 					tokens[i] = tokens[i].trim();
 				}
@@ -59,7 +73,7 @@ public class Louvain implements Serializable {
 	 * it.polimi.dagsymb.mock.Graph[VD,Long].  The resulting graph can be used for louvain computation.
 	 *
 	 */
-	public static <T> org.apache.spark.graphx.Graph<LouvainData, Long> createLouvainGraph(org.apache.spark.graphx.Graph<T, Long> graph) {
+	private <T> org.apache.spark.graphx.Graph<LouvainData, Long> createLouvainGraph(org.apache.spark.graphx.Graph<T, Long> graph) {
 
 		VertexRDD<Long> nodeWeights = graph.aggregateMessages(new AbstractFunction1<EdgeContext<T, Long, Long>, BoxedUnit> () {
 			@Override
@@ -77,7 +91,7 @@ public class Louvain implements Serializable {
 
 		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class));
 
-		return graph.<Long, LouvainData>outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, T, Option<Long>, LouvainData>() {
+		return graph.outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, T, Option<Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, T data, Option<Long> weightOption) {
 				long weight = weightOption.getOrElse(new scala.Function0<Long>() {
@@ -95,7 +109,7 @@ public class Louvain implements Serializable {
 	 * Creates the messages passed between each vertex to convey
      neighborhood community data.
 	 */
-	public static BoxedUnit sendCommunityData(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
+	private BoxedUnit sendCommunityData(EdgeContext<LouvainData, Long, Map<Tuple2<Long, Long>, Long>> e) {
 		Map<Tuple2<Long, Long>, Long> m1 = Collections.singletonMap(new Tuple2<>(e.srcAttr().community,
 				e.srcAttr().communitySigmaTot), e.attr());
 		Map<Tuple2<Long, Long>, Long> m2 = Collections.singletonMap(new Tuple2<>(e.dstAttr().community,
@@ -108,7 +122,7 @@ public class Louvain implements Serializable {
 	/**
 	 * Merge neighborhood community data into a single message for each vertex
 	 */
-	public static Map<Tuple2<Long, Long>, Long> mergeCommunityMessages(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2)  {
+	private Map<Tuple2<Long, Long>, Long> mergeCommunityMessages(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2)  {
 
 		Map<Tuple2<Long, Long>, Long> newMap = new HashMap<>();
 
@@ -140,7 +154,7 @@ public class Louvain implements Serializable {
 	 * Returns the change in modularity that would result from a vertex
      moving to a specified community.
 	 */
-	public static BigDecimal q(
+	private BigDecimal q(
 			Long currCommunityId,
 			Long testCommunityId,
 			Long testSigmaTot,
@@ -176,7 +190,7 @@ public class Louvain implements Serializable {
      modularity.
 	 * Returns a new set of vertices with the updated vertex state.
 	 */
-	public static VertexRDD<LouvainData> louvainVertJoin(
+	private VertexRDD<LouvainData> louvainVertJoin(
 			org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph,
 			VertexRDD<Map<Tuple2<Long, Long>, Long>> msgRDD,
 			Broadcast<Long> totalEdgeWeight,
@@ -221,7 +235,7 @@ public class Louvain implements Serializable {
 
 				// only allow changes from low to high communties on even cyces and
 				// high to low on odd cycles
-				if (!louvainData.community.equals(bestCommunity) && ((even &&
+				if (!louvainData.community.equals(bestCommunity) && ((even &&//TODO
 						louvainData.community > bestCommunity) || (!even &&
 								louvainData.community < bestCommunity))) {
 					//println("  "+vid+" SWITCHED from "+vdata.community+" to "+bestCommunity)
@@ -241,18 +255,18 @@ public class Louvain implements Serializable {
 		}, ClassTag.apply(Map.class), ClassTag.apply(LouvainData.class));
 	}
 
-	public static Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
+	private Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
 			JavaSparkContext sc,
 			org.apache.spark.graphx.Graph<LouvainData, Long> graph){
 
 		return louvain(sc, graph, 1, 1);
 
 	}
-	public static Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
+	private Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
 			JavaSparkContext sc,
 			org.apache.spark.graphx.Graph<LouvainData, Long> graph,
-			Integer minProgress,
-			Integer progressCounter) {
+			int minProgress,
+			int progressCounter) {
 
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = graph.cache();
 
@@ -267,11 +281,19 @@ public class Louvain implements Serializable {
 			public Long apply(Long a, Long b) {
 				return a + b;
 			}
+			@Override
+			public boolean equals(Object o) {
+				if (o == Long.class) {
+					return true;
+				} else {
+					return false;
+				}
+			}
 		});
 
 		Broadcast<Long> totalGraphWeight = sc.broadcast(graphWeight);
 
-		System.out.println("[LVX] totalEdgeWeight: " + totalGraphWeight.value());
+		//System.out.println("[LVX] totalEdgeWeight: " + totalGraphWeight.value());
 
 		// gather community information from each vertex's local neighborhood
 		VertexRDD<Map<Tuple2<Long, Long>, Long>> communityRDD =
@@ -287,14 +309,15 @@ public class Louvain implements Serializable {
 					}
 				}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class));
 
-		Long activeMessages = communityRDD.count(); //materializes the msgRDD
+		long activeMessages = communityRDD.count(); //materializes the msgRDD
 		//and caches it in memory
-		Long updated = 0L - minProgress;
+		long updated = 0L - minProgress;
 		boolean even = false;
 		int count = 0;
 		int maxIter = 100000;
 		int stop = 0;
-		Long updatedLastPhase = 0L;
+		long updatedLastPhase = 0L;
+		int iterationCounter = 0;
 		do {
 			count += 1;
 			even = !even;
@@ -305,7 +328,7 @@ public class Louvain implements Serializable {
 			//List<Tuple2<Object, LouvainData>> res = labeledVertices.toJavaRDD().collect();
 			// calculate new sigma total value for each community (total weight
 			// of each community)
-			JavaPairRDD<Object, Long> communityUpdate = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
+			JavaPairRDD<Object, Long> communityUpdate = (JavaPairRDD) labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
 				@Override
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
 					return new Tuple2<>(v._2().community, v._2().nodeWeight +
@@ -325,7 +348,7 @@ public class Louvain implements Serializable {
 					}).cache();
 
 
-			JavaPairRDD<Object, Tuple2<Long, Long>> communityMapping = labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
+			JavaPairRDD<Object, Tuple2<Long, Long>> communityMapping = (JavaPairRDD) labeledVertices.map(new AbstractFunction1<Tuple2<Object, LouvainData>, Tuple2<Object, Long>>() {
 				@Override
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
 					return new Tuple2<>(v._2().community, (Long)v._1);
@@ -345,7 +368,7 @@ public class Louvain implements Serializable {
 
 
 			// join the community labeled vertices with the updated community info
-			JavaPairRDD<Object, LouvainData> updatedVertices = labeledVertices.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, LouvainData>, Object, LouvainData>() {
+			JavaPairRDD<Object, LouvainData> updatedVertices = (JavaPairRDD) labeledVertices.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, LouvainData>, Object, LouvainData>() {
 				@Override
 				public Tuple2<Object, LouvainData> call(Tuple2<Object, LouvainData> v) {
 					return v;
@@ -362,7 +385,7 @@ public class Louvain implements Serializable {
 			}).cache();
 
 
-			System.out.println(updatedVertices.count());
+			/*System.out.println(*/updatedVertices.count()/*)*/;
 
 			labeledVertices.unpersist(false);
 			communityUpdate.unpersist(false);
@@ -420,7 +443,7 @@ public class Louvain implements Serializable {
 			}).count();
 
 			if (!even) {
-				System.out.println(" [LVX] # vertices moved: " + java.text.NumberFormat.getInstance().format(updated));
+				//GIO System.out.println(" [LVX] # vertices moved: " + java.text.NumberFormat.getInstance().format(updated));
 
 				if (updated >= updatedLastPhase - minProgress)
 					stop += 1;
@@ -428,9 +451,11 @@ public class Louvain implements Serializable {
 				updatedLastPhase = updated;
 			}
 
-		} while (stop <= progressCounter && (even || (updated > 0 && count < maxIter)));
+			iterationCounter++;
+			
+		} while (/*GIO*/iterationCounter < 5 && stop <= progressCounter && (even || (updated > 0 && count < maxIter)));
 
-		System.out.println("\n[LVX]Completed in " + count + " cycles");
+		//GIO System.out.println("\n[LVX]Completed in " + count + " cycles");
 
 		// Use each vertex's neighboring community data to calculate the
 		// global modularity of the graph
@@ -469,6 +494,14 @@ public class Louvain implements Serializable {
 			public Double apply(Double a, Double b) {
 				return a + b;	
 			}
+			@Override
+			public boolean equals(Object o) {
+				if (o == Double.class) {
+					return true;
+				} else {
+					return false;
+				}
+			}
 		});
 
 		// return the modularity value of the graph along with the
@@ -487,12 +520,12 @@ public class Louvain implements Serializable {
 			return 0L;
 	}
 
-	public static org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph) {
+	private org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph) {
 		return compressGraph(graph, true);
 	}
 
 
-	public static org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph, Boolean debug) {
+	private org.apache.spark.graphx.Graph<LouvainData, Long> compressGraph(org.apache.spark.graphx.Graph<LouvainData, Long> graph, Boolean debug) {
 		// aggregate the edge weights of self loops. edges with both src and dst in the same community.
 		// WARNING  can not use graph.mapReduceTriplets because we are mapping to new vertexIds
 		JavaPairRDD<Long, Long> internalEdgeWeights = graph.triplets().toJavaRDD().flatMap(new FlatMapFunction<EdgeTriplet<LouvainData, Long>, Tuple2<Long, Long>>() {
@@ -626,25 +659,32 @@ public class Louvain implements Serializable {
 		return louvainGraph;
 	}
 
-	public static void saveLevel(
+	private void saveLevel(
 			JavaSparkContext sc,
 			LouvainConfig config,
 			Integer level,
 			List<Tuple2<Integer, Double>> qValues,
 			Graph<LouvainData, Long> graph) {
 
-		String vertexSavePath = config.outputDir + "/level_" + level + "_vertices"+System.currentTimeMillis();
-		String edgeSavePath = config.outputDir + "/level_" + level + "_edges"+System.currentTimeMillis();
+		String vertexSavePath = ""; //GIO config.getOutputDir() + "/level_" + level + "_vertices"+System.currentTimeMillis();
+		String edgeSavePath = ""; //GIO config.getOutputDir() + "/level_" + level + "_edges"+System.currentTimeMillis();
 
 		// save
 		graph.vertices().saveAsTextFile(vertexSavePath);
 		graph.edges().saveAsTextFile(edgeSavePath);
 
 		// overwrite the q values at each level
-		sc.parallelize(qValues, 1).saveAsTextFile(config.outputDir + "/qvalues_" + level+"-"+System.currentTimeMillis());
+		sc.parallelize(qValues, 1).saveAsTextFile(""/*config.getOutputDir() + "/qvalues_" + level+"-"+System.currentTimeMillis()*/);
 	}
 
-	public static void run(JavaSparkContext sc, LouvainConfig config) {
+	private void run(/*JavaSparkContext sc,*/ LouvainConfig config) {
+		;
+	}
+
+	public void run0(/*JavaSparkContext sc,*/ LouvainConfig config) {
+		Analysis.assume(config != null);//GIO
+        JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
+
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
 		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 
@@ -656,11 +696,12 @@ public class Louvain implements Serializable {
 
 		List<Tuple2<Integer, Double>> qValues = new ArrayList<>();
 
+ 		int iterationCounter = 0;
 		do {
 			compressionLevel += 1;
-			System.out.println("\nStarting it.polimi.dagsymb.Louvain level"+compressionLevel);
+			//GIO System.out.println("\nStarting it.polimi.dagsymb.Louvain level"+compressionLevel);
 
-			Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> data = louvain(sc, louvainGraph, config.minimumCompressionProgress, config.progressCounter);
+			Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> data = louvain(sc, louvainGraph, config.getMinimumCompressionProgress(), config.getProgressCounter());
 			// label each vertex with its best community choice at this level of compression
 			Double currentQModularityValue = data._1();
 			org.apache.spark.graphx.Graph<LouvainData, Long> currentGraph = data._2();
@@ -670,7 +711,7 @@ public class Louvain implements Serializable {
 			louvainGraph.unpersistVertices(false);
 			louvainGraph = currentGraph;
 
-			System.out.println("[LVX] qValue: "+currentQModularityValue);
+			//GIO System.out.println("[LVX] qValue: "+currentQModularityValue);
 
 			qValues.add(new Tuple2<Integer, Double>(compressionLevel, currentQModularityValue));
 
@@ -686,11 +727,19 @@ public class Louvain implements Serializable {
 			else {
 				halt = true;
 			}
+			
+			iterationCounter++;
 
-		} while (!halt);
+		} while (/*GIO*/iterationCounter < 5 && !halt);
 
 		//finalSave(sc, compressionLevel, q_modularityValue, louvainGraph)
 
+		run(config);//GIO
 	}
+
+	public void addToFileLocal(int amount, int v1, int v2) {
+		JavaSparkContext.addToDataset("src/dataset/local1.txt", amount, v1 + ", " + v2);
+	}
+	
 
 }

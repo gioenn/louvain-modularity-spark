@@ -1,7 +1,5 @@
 package it.polimi.dagsymb;
 
-import org.apache.spark.api.java.JavaSparkContext;
-
 public class Driver {
 
 
@@ -31,19 +29,17 @@ public class Driver {
         // val sc = new SparkContext(conf)
         // Logger.getRootLogger.setLevel(Level.WARN)
 
-        JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
+        //JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
 
         // deleteOutputDir(config)
 
-		Louvain.run(sc, config);
+		//Louvain.run(sc, config);
     }
     
-	public void addToFileLocal(int amount, long v1, long v2) {
-		//JavaSparkContext.addToDataset("dataset/local.txt", amount, v1 + ", " + v2);
-	}
 	
     public static void main(String[] args){
     	Driver driver = new Driver();
+    	Louvain louvain = new Louvain();
    
     	String data = 	"1,2 -    			1,3 -     			1,4 -     			1,5 -     			1,6 -     			2,3 -   "
     			+ "  			2,4 -     			2,5 -     			2,1 -     			3,4 -     			3,5 -     		"
@@ -60,10 +56,18 @@ public class Driver {
     		pair[1] = pair[1].trim();
     		int v0 = Integer.parseInt(pair[0]);
     		int v1 = Integer.parseInt(pair[1]);
-    		driver.addToFileLocal(1, v0, v1);
+    		louvain.addToFileLocal(1, v0, v1);
     	}
     	    	
-    	driver.run_main(args);
+    	LouvainConfig config = new LouvainConfig("####",
+                "###", 20, 2000, 1, "###");
+
+    	//louvain.addToFileLocal(1400000, 1, 2);
+    	//louvain.addToFileLocal(500000, 5, 3);
+    	
+    	//louvain.addToFileLocal(900000, 4, 3);
+    	louvain.run(config);
+    	    	
     }
 	
 }
