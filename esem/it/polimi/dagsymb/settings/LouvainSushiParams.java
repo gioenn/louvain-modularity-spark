@@ -30,7 +30,7 @@ public class LouvainSushiParams extends ParametersModifier {
 		p.setTargetMethod("it/polimi/dagsymb/Louvain", "(Lit/polimi/dagsymb/LouvainConfig;)V", "run");
 
 		//Analysis params 
-		p.setEvosuiteBudget(3600);
+		p.setEvosuiteBudget(7200);
 		p.setJBSEBudget(3600);
 		p.setCoverage(Coverage.PATHS);
 		p.setLogLevel(Level.DEBUG);
@@ -46,7 +46,7 @@ public class LouvainSushiParams extends ParametersModifier {
 		
 		//Parallelism
 		p.setRedundanceEvosuite(1);
-		p.setParallelismEvosuite(7);
+		p.setParallelismEvosuite(10);
 		
 		//p.setUseMOSA(true);
 	}
