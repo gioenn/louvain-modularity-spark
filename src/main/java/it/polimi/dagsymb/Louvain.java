@@ -37,8 +37,9 @@ public class Louvain implements Serializable {
 	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>, Serializable { }
 	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>, Serializable { }
 	
-	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) { Configuration hadoopConf = sc.hadoopConfiguration();
-		JavaRDD<Edge<Long>> res = sc.<String>textFile( conf.getInputFile(), conf.getParallelism())
+	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
+		Configuration hadoopConf = sc.hadoopConfiguration();
+		JavaRDD<Edge<Long>> res = sc.<String>textFile(hadoopConf.get("fs.defaultFS") + "/" + conf.getInputFile(), conf.getParallelism())
 				.map(new Function<String, Edge<Long>>() {
 			@Override
 			public Edge<Long> call(String row) {
@@ -657,15 +658,17 @@ public class Louvain implements Serializable {
 			List<Tuple2<Integer, Double>> qValues,
 			Graph<LouvainData, Long> graph) {
 
-		String vertexSavePath = ""; //GIO config.getOutputDir() + "/level_" + level + "_vertices"+System.currentTimeMillis();
-		String edgeSavePath = ""; //GIO config.getOutputDir() + "/level_" + level + "_edges"+System.currentTimeMillis();
+		Configuration hadoopConf = sc.hadoopConfiguration();
 
+		String vertexSavePath = hadoopConf.get("fs.defaultFS") + config.getOutputDir() + "/level_" + level + "_vertices"+System.currentTimeMillis();
+		String edgeSavePath = hadoopConf.get("fs.defaultFS") + config.getOutputDir() + "/level_" + level + "_edges"+System.currentTimeMillis();
+		String qPath = hadoopConf.get("fs.defaultFS") + config.getOutputDir() + "/qvalues_" + level+"-"+System.currentTimeMillis();
 		// save
 		graph.vertices().saveAsTextFile(vertexSavePath);
 		graph.edges().saveAsTextFile(edgeSavePath);
 
 		// overwrite the q values at each level
-		sc.parallelize(qValues, 1).saveAsTextFile(""/*config.getOutputDir() + "/qvalues_" + level+"-"+System.currentTimeMillis()*/);
+		sc.parallelize(qValues, 1).saveAsTextFile(qPath);
 	}
 
 	private void run(/*JavaSparkContext sc,*/ LouvainConfig config) {
@@ -674,8 +677,9 @@ public class Louvain implements Serializable {
 
 	public void run0(/*JavaSparkContext sc,*/ LouvainConfig config) {
 //		Analysis.assume(config != null);//GIO
-		JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(config.getAppName()).setMaster("local[4]")); //Configuration conf = sc.hadoopConfiguration(); //conf.set("fs.defaultFS","hdfs://localhost:9000");//JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
-        //if (config.getGenData()) GraphDataGenerator.createGraphData(sc, config.getInputFile(), config.getSize1(), config.getSize2(), config.getSize3(), config.getDelimiter());
+		JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(config.getAppName())/*.setMaster("local[4]")*/); //Configuration conf = sc.hadoopConfiguration(); //conf.set("fs.defaultFS","hdfs://localhost:9000");//JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
+		if (config.getGenData()) GraphDataGenerator.createGraphData(sc, config.getInputFile(), config.getSize1(), config.getSize2(), config.getSize3(), config.getDelimiter());
+
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
 		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 
