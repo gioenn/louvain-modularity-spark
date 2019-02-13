@@ -2,7 +2,9 @@ package it.polimi.dagsymb;
 
 //import java.io.Serializable;
 
-public class LouvainConfig /*implements Serializable*/ {
+import java.io.Serializable;
+
+public class LouvainConfig implements Serializable {
 	private String inputFile;
     private String outputDir;
     private long size1;
@@ -11,7 +13,7 @@ public class LouvainConfig /*implements Serializable*/ {
     private int parallelism;
     private int minimumCompressionProgress;
     private int progressCounter;
-    private String delimiter;
+    String delimiter;
     private boolean genData;
     private String appName;
 
@@ -33,12 +35,13 @@ public class LouvainConfig /*implements Serializable*/ {
 
     // Original constructor, left here to avoid compilation errors in other modules
     public LouvainConfig(String inputFile, String outputDir, int parallelism, int minimumCompressionProgress, int progressCounter, String delimiter){
-        this.inputFile = "src/dataset/local1.txt"; //GIO fixed inputFile;
+        this.inputFile = "src/dataset/local.txt"; //GIO fixed inputFile;
         this.outputDir = outputDir;
         this.parallelism = parallelism;
         this.minimumCompressionProgress = minimumCompressionProgress;
         this.progressCounter = progressCounter;
         this.delimiter = ","; //GIO fixed delimiter;
+		appName = "test";
     }
     
 	public String getInputFile() {

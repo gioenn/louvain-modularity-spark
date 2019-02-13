@@ -7,7 +7,9 @@ import com.esotericsoftware.kryo.io.Output;*/
 
 //import java.io.Serializable;
 
-public class LouvainData /*implements KryoSerializable, Serializable */{
+import java.io.Serializable;
+
+public class LouvainData implements Serializable {
 
     Long community;
     Long communitySigmaTot;
