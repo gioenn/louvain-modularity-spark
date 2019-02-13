@@ -16,9 +16,8 @@ import org.apache.spark.storage.StorageLevel;
 import scala.Option;
 import scala.Tuple2;
 import scala.Tuple3;
-import scala.reflect.ClassTag;
+import scala.reflect.ClassTag$;
 import scala.runtime.BoxedUnit;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.*;
@@ -33,13 +32,14 @@ public class Louvain implements Serializable {
 	//	JavaSparkContext.resetData();
 	}
 
-	public interface AbstractFunction1<T1, T2> extends scala.Function1<T1, T2> , Serializable { }
-	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>, Serializable { }
-	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>, Serializable { }
+	public abstract class AbstractFunction0<T1> extends scala.runtime.AbstractFunction0<T1> implements Serializable { }
+	public abstract class AbstractFunction1<T1, T2> extends scala.runtime.AbstractFunction1<T1, T2> implements Serializable { }
+	public abstract class AbstractFunction2<T1, T2, T3> extends scala.runtime.AbstractFunction2<T1, T2, T3> implements Serializable { }
+	public abstract class AbstractFunction3<T1, T2, T3, T4> extends scala.runtime.AbstractFunction3<T1, T2, T3, T4> implements Serializable { }
 	
 	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
 		Configuration hadoopConf = sc.hadoopConfiguration();
-		JavaRDD<Edge<Long>> res = sc.<String>textFile(hadoopConf.get("fs.defaultFS") + "/" + conf.getInputFile(), conf.getParallelism())
+		JavaRDD<Edge<Long>> res = sc.<String>textFile(hadoopConf.get("fs.defaultFS") + conf.getInputFile(), conf.getParallelism())
 				.map(new Function<String, Edge<Long>>() {
 			@Override
 			public Edge<Long> call(String row) {
@@ -56,7 +56,7 @@ public class Louvain implements Serializable {
 			}
 		});
 
-		return EdgeRDD.fromEdges(res.rdd(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+		return EdgeRDD.fromEdges(res.rdd(), ClassTag$.MODULE$.apply(Long.class),  ClassTag$.MODULE$.apply(Long.class));
 	}
 
 	/**
@@ -81,19 +81,19 @@ public class Louvain implements Serializable {
 				return e1 + e2;
 			}
 
-		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class));
+		}, (TripletFields)TripletFields.All, ClassTag$.MODULE$.apply(Long.class));
 
 		return graph.outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, T, Option<Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, T data, Option<Long> weightOption) {
-				long weight = weightOption.getOrElse(new scala.Function0<Long>() {
+				long weight = weightOption.getOrElse(new AbstractFunction0<Long>() {
 					public Long apply() {
 						return 0L;
 					}
 				});
 				return new LouvainData((Long) vid, weight, 0L, weight, false);
 			}
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO eq?
+		}, ClassTag$.MODULE$.apply(Long.class), ClassTag$.MODULE$.apply(LouvainData.class), /*eq*/null);//TODO eq?
 
 	}
 
@@ -244,7 +244,7 @@ public class Louvain implements Serializable {
 
 				return louvainData;
 			}
-		}, ClassTag.apply(Map.class), ClassTag.apply(LouvainData.class));
+		}, ClassTag$.MODULE$.apply(Map.class), ClassTag$.MODULE$.apply(LouvainData.class));
 	}
 
 	private Tuple3<Double, org.apache.spark.graphx.Graph<LouvainData, Long>, Integer> louvain(
@@ -268,7 +268,7 @@ public class Louvain implements Serializable {
 				LouvainData louvainData = (LouvainData) louvainVertex._2();
 				return louvainData.internalWeight + louvainData.nodeWeight;
 			}
-		}, ClassTag.apply(Long.class)).reduce(new AbstractFunction2<Long, Long, Long>() {
+		}, ClassTag$.MODULE$.apply(Long.class)).reduce(new AbstractFunction2<Long, Long, Long>() {
 			@Override
 			public Long apply(Long a, Long b) {
 				return a + b;
@@ -299,7 +299,7 @@ public class Louvain implements Serializable {
 					public Map<Tuple2<Long, Long>, Long> apply(Map<Tuple2<Long, Long>, Long> m1, Map<Tuple2<Long, Long>, Long> m2) {
 						return mergeCommunityMessages(m1, m2);
 					}
-				}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class));
+				}, (TripletFields) TripletFields.All, ClassTag$.MODULE$.apply(Map.class));
 
 		long activeMessages = communityRDD.count(); //materializes the msgRDD
 		//and caches it in memory
@@ -326,7 +326,7 @@ public class Louvain implements Serializable {
 					return new Tuple2<>(v._2().community, v._2().nodeWeight +
 							v._2().internalWeight);
 				}
-			}, ClassTag.apply(Tuple2.class)).toJavaRDD()
+			}, ClassTag$.MODULE$.apply(Tuple2.class)).toJavaRDD()
 					.mapToPair(new PairFunction<Tuple2<Object, Long>, Object, Long>() {
 						@Override
 						public Tuple2<Object, Long> call(Tuple2<Object, Long> v) {
@@ -345,7 +345,7 @@ public class Louvain implements Serializable {
 				public Tuple2<Object, Long> apply(Tuple2<Object, LouvainData> v) {
 					return new Tuple2<>(v._2().community, (Long)v._1);
 				}
-			}, ClassTag.apply(Tuple2.class))
+			}, ClassTag$.MODULE$.apply(Tuple2.class))
 					.toJavaRDD().mapToPair(new PairFunction<Tuple2<Object, Long>, Object, Long>() {
 						@Override
 						public Tuple2<Object, Long> call(Tuple2<Object, Long> v) {
@@ -385,18 +385,18 @@ public class Louvain implements Serializable {
 
 			org.apache.spark.graphx.Graph<LouvainData, Long> prevG = louvainGraph;
 
-			louvainGraph = louvainGraph.outerJoinVertices(VertexRDD/*$.MODULE$*/.apply(updatedVertices.rdd() , ClassTag.apply(LouvainData.class)),
+			louvainGraph = louvainGraph.outerJoinVertices(VertexRDD/*$.MODULE$*/.apply(updatedVertices.rdd() , ClassTag$.MODULE$.apply(LouvainData.class)),
 					new AbstractFunction3<Object, LouvainData, Option<LouvainData>, LouvainData>() {
 				@Override
 				public LouvainData apply(Object vid, LouvainData old, Option<LouvainData> newOpt) {
 
-					return newOpt.getOrElse(new scala.Function0<LouvainData>() {
+					return newOpt.getOrElse(new AbstractFunction0<LouvainData>() {
 						public LouvainData apply() {
 							return old;
 						}
 					});
 				}
-			}, ClassTag.apply(LouvainData.class), ClassTag.apply(LouvainData.class), /*eq*/null);//TODO
+			}, ClassTag$.MODULE$.apply(LouvainData.class), ClassTag$.MODULE$.apply(LouvainData.class), /*eq*/null);//TODO
 
 			louvainGraph.cache();
 
@@ -414,7 +414,7 @@ public class Louvain implements Serializable {
 							return mergeCommunityMessages(m1, m2);
 						}
 						
-					}, (TripletFields) TripletFields.All, ClassTag.apply(Map.class)).cache();
+					}, (TripletFields) TripletFields.All, ClassTag$.MODULE$.apply(Map.class)).cache();
 
 			activeMessages = communityRDD.count(); // materializes the graph by forcing computation
 			oldMsgs.unpersist(false);
@@ -474,14 +474,14 @@ public class Louvain implements Serializable {
 						else
 							return q;
 					}
-				}, ClassTag.apply(Map.class), ClassTag.apply(Double.class));
+				}, ClassTag$.MODULE$.apply(Map.class), ClassTag$.MODULE$.apply(Double.class));
 
 		Double actualQ = newVertices.map(new AbstractFunction1<Tuple2<Object, Double>, Double>() {
 			@Override
 			public Double apply(Tuple2<Object, Double> v) {
 				return v._2();
 			}
-		}, ClassTag.apply(Double.class)).reduce(new AbstractFunction2<Double, Double, Double>() {
+		}, ClassTag$.MODULE$.apply(Double.class)).reduce(new AbstractFunction2<Double, Double, Double>() {
 			@Override
 			public Double apply(Double a, Double b) {
 				return a + b;	
@@ -547,7 +547,7 @@ public class Louvain implements Serializable {
 			public LouvainData apply(Tuple2<Object, LouvainData> v) {
 				return v._2();
 			}
-		}, ClassTag.apply(LouvainData.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
+		}, ClassTag$.MODULE$.apply(LouvainData.class)).toJavaRDD().mapToPair(new PairFunction<LouvainData, Long, Long>(){
 			@Override
 			public Tuple2<Long, Long> call(LouvainData v) {
 				return new Tuple2<Long, Long>(v.community, v.internalWeight);
@@ -595,12 +595,12 @@ public class Louvain implements Serializable {
 			public Tuple2<Object, LouvainData> call(Tuple2<Long, LouvainData> v) {
 				return new Tuple2<Object, LouvainData>(v._1, v._2);
 			}
-		}).rdd(), ClassTag.apply(LouvainData.class));
-		EdgeRDD<Long> _newEdges = EdgeRDD.fromEdges(edges.rdd(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+		}).rdd(), ClassTag$.MODULE$.apply(LouvainData.class));
+		EdgeRDD<Long> _newEdges = EdgeRDD.fromEdges(edges.rdd(), ClassTag$.MODULE$.apply(Long.class), ClassTag$.MODULE$.apply(Long.class));
 		// generate a new graph where each community of the previous graph is
 		// now represented as a single vertex
-		org.apache.spark.graphx.Graph<LouvainData, Long> compressedGraph = Graph.apply(_newVertices, _newEdges, null, null, StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(LouvainData.class), ClassTag.apply(Long.class))
-				.partitionBy(PartitionStrategy.fromString("EdgePartition2D")) /* PartitionStrategy.EdgePartition2D$.MODULE$*/
+		org.apache.spark.graphx.Graph<LouvainData, Long> compressedGraph = Graph.apply(_newVertices, _newEdges, null, null, StorageLevel.MEMORY_AND_DISK(), ClassTag$.MODULE$.apply(LouvainData.class), ClassTag$.MODULE$.apply(Long.class))
+				.partitionBy(PartitionStrategy.EdgePartition2D$.MODULE$) /* PartitionStrategy.EdgePartition2D$.MODULE$*/
 				.groupEdges(new AbstractFunction2<Long, Long, Long>() {
 					@Override
 					public Long apply(Long e1, Long e2) {
@@ -623,14 +623,14 @@ public class Louvain implements Serializable {
 			public Long apply(Long e1, Long e2) {
 				return e1 + e2;
 			}
-		}, (TripletFields)TripletFields.All, ClassTag.apply(Long.class)); //TODO
+		}, (TripletFields)TripletFields.All, ClassTag$.MODULE$.apply(Long.class)); //TODO
 
 		// fill in the weighted degree of each node
 		// val louvainGraph = compressedGraph.joinVertices(nodeWeights)((vid,data,weight)=> {
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = compressedGraph.outerJoinVertices(nodeWeights.toJavaRDD().rdd(), new AbstractFunction3<Object, LouvainData, Option<Long>, LouvainData>() {
 			@Override
 			public LouvainData apply(Object vid, LouvainData data, Option<Long> weightOption) {
-				Long weight = weightOption.getOrElse(new scala.Function0<Long>() {
+				Long weight = weightOption.getOrElse(new AbstractFunction0<Long>() {
 					public Long apply() {
 						return 0L;
 					}
@@ -640,7 +640,7 @@ public class Louvain implements Serializable {
 				return data;
 			}
 
-		}, ClassTag.apply(Long.class), ClassTag.apply(LouvainData.class), /*eq*/null /*TODO eq?*/).cache();
+		}, ClassTag$.MODULE$.apply(Long.class), ClassTag$.MODULE$.apply(LouvainData.class), /*eq*/null /*TODO eq?*/).cache();
 
 		; // materialize the graph
 		louvainGraph.vertices().count();
@@ -681,7 +681,7 @@ public class Louvain implements Serializable {
 		if (config.getGenData()) GraphDataGenerator.createGraphData(sc, config.getInputFile(), config.getSize1(), config.getSize2(), config.getSize3(), config.getDelimiter());
 
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
-		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
+		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag$.MODULE$.apply(Long.class), ClassTag$.MODULE$.apply(Long.class));
 
 		org.apache.spark.graphx.Graph<LouvainData, Long> louvainGraph = createLouvainGraph(initialGraph);
 

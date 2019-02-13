@@ -33,18 +33,19 @@ public class LouvainLauncher/* extends Louvain_0_0_Test_scaffolding*/ {
       if (dataGen != null && dataGen.startsWith("-g")) genData = true;
       if (appName != null && !appName.startsWith("-")) sparkAppName = appName;
 
-      /*
-      LouvainConfig louvainConfig0 = new LouvainConfig(
+
+      /*LouvainConfig louvainConfig0 = new LouvainConfig(
               "src/data/input/sample.txt",
               "src/data/output/",
               20,
               2000,
               1,
-              ","); */
+              ",");
+              */
       LouvainConfig louvainConfig0 = new LouvainConfig(inputFile, outputFile, size1, size2, size3, parallelism,
         	  minimumCompressionProgress, progressCounter, delimiter, genData, sparkAppName);
 
-       Louvain louvain0 = new Louvain();
+      Louvain louvain0 = new Louvain();
 
       louvain0.run0(louvainConfig0);
   }
