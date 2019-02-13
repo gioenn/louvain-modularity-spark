@@ -1,5 +1,6 @@
 package it.polimi.dagsymb;
-
+import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -18,8 +19,7 @@ import org.apache.spark.graphx.PartitionStrategy;
 import org.apache.spark.graphx.TripletFields;
 import org.apache.spark.graphx.VertexRDD;
 import org.apache.spark.storage.StorageLevel;
-
-import jbse.meta.Analysis;
+//import jbse.meta.Analysis;
 import scala.Option;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -39,15 +39,15 @@ import java.util.Map;
 public class Louvain {
 
 	public Louvain() {
-		JavaSparkContext.resetData();
+	//	JavaSparkContext.resetData();
 	}
 
 	public interface AbstractFunction1<T1, T2> extends scala.Function1<T1, T2>/*GIO , Serializable*/ { }
 	public interface AbstractFunction2<T1, T2, T3> extends scala.Function2<T1, T2, T3>/*, Serializable*/ { }
 	public interface AbstractFunction3<T1, T2, T3, T4> extends scala.Function3<T1, T2, T3, T4>/*, Serializable*/ { }
-
-	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) {
-		JavaRDD<Edge<Long>> res = sc.<String>textFile(conf.getInputFile(), conf.getParallelism())
+	
+	private EdgeRDD<Long> getEdgeRDD(JavaSparkContext sc, LouvainConfig conf) { Configuration hadoopConf = sc.hadoopConfiguration();
+		JavaRDD<Edge<Long>> res = sc.<String>textFile(hadoopConf.get("fs.defaultFS") + "/" + conf.getInputFile(), conf.getParallelism())
 				.map(new Function<String, Edge<Long>>() {
 			@Override
 			public Edge<Long> call(String row) {
@@ -682,9 +682,9 @@ public class Louvain {
 	}
 
 	public void run0(/*JavaSparkContext sc,*/ LouvainConfig config) {
-		Analysis.assume(config != null);//GIO
-        JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
-
+//		Analysis.assume(config != null);//GIO
+		JavaSparkContext sc = new JavaSparkContext(new SparkConf().setAppName(config.getAppName())/*.setMaster("local[4]")*/); Configuration conf = sc.hadoopConfiguration(); //conf.set("fs.defaultFS","hdfs://localhost:9000");//JavaSparkContext sc = new JavaSparkContext("local", "it.polimi.dagsymb.Louvain");
+        if (config.getGenData()) GraphDataGenerator.createGraphData(sc, config.getInputFile(), config.getSize1(), config.getSize2(), config.getSize3(), config.getDelimiter());
 		EdgeRDD<Long> edgeRDD = getEdgeRDD(sc, config);
 		org.apache.spark.graphx.Graph<Long, Long> initialGraph = org.apache.spark.graphx.Graph.fromEdges(edgeRDD, null, StorageLevel.MEMORY_AND_DISK(), StorageLevel.MEMORY_AND_DISK(), ClassTag.apply(Long.class), ClassTag.apply(Long.class));
 
@@ -738,7 +738,7 @@ public class Louvain {
 	}
 
 	public void addToFileLocal(int amount, int v1, int v2) {
-		JavaSparkContext.addToDataset("src/dataset/local1.txt", amount, v1 + ", " + v2);
+//		JavaSparkContext.addToDataset("src/dataset/local1.txt", amount, v1 + ", " + v2);
 	}
 	
 

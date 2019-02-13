@@ -1,4 +1,4 @@
-package it.polimi.deepse.dagsymb;
+package it.polimi.dagsymb;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -11,8 +11,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.JavaSparkContext;
 
-public class GraphGenerator {
-public static void createGraph(JavaSparkContext sc, String filename, long size1, long size2, long size3){
+public class GraphDataGenerator {
+public static void createGraphData(JavaSparkContext sc, String filename, long size1, long size2, long size3, String delimiter){
 		
 		//Get configuration of Hadoop system
 	    Configuration conf = sc.hadoopConfiguration();
@@ -28,7 +28,7 @@ public static void createGraph(JavaSparkContext sc, String filename, long size1,
 			if (size1 != size2)
 				bias = size1;
 			for (long i = 1; i <= size1; ++i) {
-		      String line = i + " " + (i + bias);
+		      String line = i + delimiter + (i + bias);
 	      	  writer.write(line + "\n");
 	        };
 	        writer.flush();

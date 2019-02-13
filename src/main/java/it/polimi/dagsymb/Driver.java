@@ -66,7 +66,7 @@ public class Driver {
     	//louvain.addToFileLocal(500000, 5, 3);
     	
     	//louvain.addToFileLocal(900000, 4, 3);
-    	louvain.run(config);
+//    	louvain.run(config);
     	    	
     }
 	
