@@ -11,6 +11,9 @@ import org.junit.runner.RunWith;
 import shaded.org.evosuite.runtime.EvoRunner;
 import shaded.org.evosuite.runtime.EvoRunnerParameters;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @RunWith(EvoRunner.class) @EvoRunnerParameters(mockJVMNonDeterminism = true, useVNET = true, resetStaticState = true, separateClassLoader = true) 
 public class LouvainLauncher/* extends Louvain_0_0_Test_scaffolding*/ {
  
@@ -18,16 +21,20 @@ public class LouvainLauncher/* extends Louvain_0_0_Test_scaffolding*/ {
 	  String IGuardEvalClassname = args[0]; // IGuardEvaluator implementation Class FQ Classname
 	  String inputFile = args[1];
 	  String outputFile = args[2];
-	  Long size1 = Long.parseLong(args[3]);
-	  long size2 = Long.parseLong(args[4]);
-	  long size3 = Long.parseLong(args[5]);
-      int parallelism = Integer.parseInt(args[6]);
-      int minimumCompressionProgress = Integer.parseInt(args[7]);
-	  int progressCounter = Integer.parseInt(args[8]);
-	  String delimiter = args[9];
-	  String dataGen = args[10];
-	  String appName = args[11];
-	  
+      int parallelism = Integer.parseInt(args[3]);
+      int minimumCompressionProgress = Integer.parseInt(args[4]);
+	  int progressCounter = Integer.parseInt(args[5]);
+	  String delimiter = args[6];
+
+	  List<Long> sizes = new ArrayList<>();
+	  for (int i = 7; i < args.length - 2; i++){
+	      Long s = Long.parseLong(args[i]);
+	      sizes.add(s);
+      }
+
+      String dataGen = args[args.length-2];
+      String appName = args[args.length-1];
+
       boolean genData = false;
       String sparkAppName = "";
       if (dataGen != null && dataGen.startsWith("-g")) genData = true;
@@ -42,8 +49,8 @@ public class LouvainLauncher/* extends Louvain_0_0_Test_scaffolding*/ {
               1,
               ",");
               */
-      LouvainConfig louvainConfig0 = new LouvainConfig(inputFile, outputFile, size1, size2, size3, parallelism,
-        	  minimumCompressionProgress, progressCounter, delimiter, genData, sparkAppName);
+      LouvainConfig louvainConfig0 = new LouvainConfig(inputFile, outputFile, parallelism,
+        	  minimumCompressionProgress, progressCounter, delimiter, genData, sparkAppName, sizes);
 
       Louvain louvain0 = new Louvain();
 

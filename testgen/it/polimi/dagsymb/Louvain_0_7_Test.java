@@ -25,7 +25,7 @@ public class Louvain_0_7_Test extends Louvain_0_7_Test_scaffolding {
   @Test(timeout = 4000)
   public void test0()  throws Throwable  {
       Louvain louvain0 = new Louvain();
-      louvain0.addToFileLocal(1000000, 2, 0);
+      louvain0.addToFileLocal(1000000, 0, 1);
       LouvainConfig louvainConfig0 = new LouvainConfig("org.apache.spark.graphx.TripletFields", "", 0, (-5), (-5), "");
       louvain0.run0(louvainConfig0);
   }

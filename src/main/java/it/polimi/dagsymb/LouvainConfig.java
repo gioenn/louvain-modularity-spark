@@ -3,13 +3,12 @@ package it.polimi.dagsymb;
 //import java.io.Serializable;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class LouvainConfig implements Serializable {
 	private String inputFile;
     private String outputDir;
-    private long size1;
-    private long size2;
-    private long size3;    
+	private List<Long> sizes;
     private int parallelism;
     private int minimumCompressionProgress;
     private int progressCounter;
@@ -17,14 +16,12 @@ public class LouvainConfig implements Serializable {
     private boolean genData;
     private String appName;
 
-    public LouvainConfig(String inputFile, String outputDir, long size1, long size2, long size3, 
+    public LouvainConfig(String inputFile, String outputDir,
     		int parallelism, int minimumCompressionProgress, int progressCounter, String delimiter, 
-    		boolean genData, String appName){
+    		boolean genData, String appName, List<Long> sizes){
         this.inputFile = inputFile;
         this.outputDir = outputDir;
-        this.size1 = size1;
-        this.size2 = size2;
-        this.size3 = size3;
+        this.sizes = sizes;
         this.parallelism = parallelism;
         this.minimumCompressionProgress = minimumCompressionProgress;
         this.progressCounter = progressCounter;
@@ -52,18 +49,10 @@ public class LouvainConfig implements Serializable {
 		return outputDir;
 	}
 
-	public long getSize1() {
-		return size1;
+	public List<Long> getSizes() {
+		return sizes;
 	}
-
-	public long getSize2() {
-		return size2;
-	}
-
-	public long getSize3() {
-		return size3;
-	}
-
+	
 	public int getParallelism() {
 		return parallelism;
 	}

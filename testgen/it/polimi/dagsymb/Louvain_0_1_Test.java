@@ -25,11 +25,11 @@ public class Louvain_0_1_Test extends Louvain_0_1_Test_scaffolding {
   @Test(timeout = 4000)
   public void test0()  throws Throwable  {
       Louvain louvain0 = new Louvain();
-      louvain0.addToFileLocal(1000000, (-1), 1);
-      louvain0.addToFileLocal(1000000, 1, 4);
-      LouvainConfig louvainConfig0 = new LouvainConfig("", "", 1000000, (-1), 1, "");
-      louvain0.addToFileLocal(1000000, 1, 1000000);
-      louvain0.addToFileLocal(1000000, 1000000, 4);
+      louvain0.addToFileLocal(1000000, 0, 1);
+      louvain0.addToFileLocal(1000000, 1, 2);
+      LouvainConfig louvainConfig0 = new LouvainConfig("", "", 1000000, 0, 1, "");
+      louvain0.addToFileLocal(1000000, 1, 3);
+      louvain0.addToFileLocal(1000000, 3, 2);
       louvain0.run0(louvainConfig0);
   }
 }

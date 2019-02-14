@@ -25,7 +25,7 @@ public class Louvain_0_6_Test extends Louvain_0_6_Test_scaffolding {
   @Test(timeout = 4000)
   public void test0()  throws Throwable  {
       Louvain louvain0 = new Louvain();
-      louvain0.addToFileLocal(1000000, (-2012), 1000000);
+      louvain0.addToFileLocal(1000000, 0, 1);
       LouvainConfig louvainConfig0 = new LouvainConfig("sushi.compile.path_condition_distance.SimilarityWithRef", "|!iz`7uYxWD1EEb;", (-2145617892), (-2145571373), 2145617893, "|!iz`7uYxWD1EEb;");
       louvain0.run0(louvainConfig0);
   }

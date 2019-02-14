@@ -25,7 +25,7 @@ public class Louvain_0_2_Test extends Louvain_0_2_Test_scaffolding {
   @Test(timeout = 4000)
   public void test0()  throws Throwable  {
       Louvain louvain0 = new Louvain();
-      louvain0.addToFileLocal(9999970, 9999970, (-186));
+      louvain0.addToFileLocal(9999970, 0, 1);
       LouvainConfig louvainConfig0 = new LouvainConfig("j1", "7;-4?I7d0Ku+fs.x:~", 542, Integer.MIN_VALUE, 2, "j1");
       louvain0.run0(louvainConfig0);
   }
