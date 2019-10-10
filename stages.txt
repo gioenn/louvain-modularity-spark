@@ -1,0 +1,27 @@
+Louvain #stages and totalduration by case - profile set 1
+case	#stg	#skip	#noskip	t.duration	t.d.+20%
+0: 		150		119		31		153600		184320
+1:wc	365		314		51		190000		228000
+2:wc*	365		314		51		239200		287040
+3: 		150		119		31		190600		228720
+6:wc	365		314		51		135800		162960
+7:bc*	74		53		21		125400		150480
+
+Louvain #stages and totalduration by case - profile set 2
+case	#stg	#skip	#noskip	t.duration	t.d.+20%
+0: 		150		119		31		153600		184320
+1:wc	365		314		51		190000		228000
+2:wc*	365		314		51		223400		268080
+3: 		150		119		31		190600		228720
+6:wc	365		314		51		135800		162960
+7:bc*	74		53		21		116400		139680
+
+bc	:	best case
+bc*	:	best case w/lowest execution time
+wc	:	worst case
+wc*	:	worst case w/highest execution time
+
+
+Random Louvain #stages and totalduration by case - profile Louvain-random.json
+case	#stg	#skip	#noskip	t.duration	t.d.+20%:
+rnd		504		443		61		235667		282800
